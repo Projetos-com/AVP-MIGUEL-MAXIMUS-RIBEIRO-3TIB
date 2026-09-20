@@ -1,4 +1,4 @@
-# Template didático de autenticação com Node.js
+# API de autenticação da AV1
 
 ## 1. Objetivo do projeto
 
@@ -6,7 +6,7 @@ Este projeto é uma base para a aula prática de Desenvolvimento de Sistemas Web
 
 **cadastro → hash de senha → login → sessão/token → middleware → rota protegida**
 
-As partes principais da autenticação contêm `TODOs`. Elas não estão prontas: serão implementadas pelos alunos durante a aula e depois poderão ser adaptadas aos projetos de TCC.
+Esta API implementa cadastro, login com JWT, proteção de rotas e autorização por nível de acesso.
 
 ## 2. Tecnologias usadas
 
@@ -74,10 +74,10 @@ O arquivo `.env` contém dados privados e não deve ser enviado ao Git. O `.env.
 
 ## 6. Como criar o banco com Prisma
 
-Com o MySQL funcionando e o `.env` configurado, execute:
+Com o MySQL funcionando e o `.env` configurado, aplique as migrations versionadas e gere o Prisma Client:
 
 ```bash
-npx prisma migrate dev --name init
+npx prisma migrate dev
 ```
 
 Esse comando cria as tabelas descritas em `prisma/schema.prisma` e gera o Prisma Client.
@@ -92,6 +92,7 @@ O seed cria ou atualiza este usuário de teste:
 
 - Email: `aluno@email.com`
 - Senha: `123456`
+- Papel: `ADMIN`
 
 A senha não é salva pura: o seed usa o bcrypt para gerar seu hash.
 
@@ -103,11 +104,29 @@ npm run dev
 
 A API estará disponível em `http://localhost:3000`. O nodemon reinicia o servidor quando um arquivo é alterado.
 
-## 9. Como testar as rotas
+## 9. Rotas da API
 
-Use Insomnia, Postman ou outra ferramenta de requisições HTTP.
+| Método | Rota | Acesso | Resultado |
+| --- | --- | --- | --- |
+| GET | `/health` | Público | Verifica se a API está funcionando |
+| POST | `/usuarios` | Público | Cadastra usuário comum com senha criptografada |
+| POST | `/login` | Público | Valida credenciais e retorna JWT |
+| GET | `/perfil` | Bearer Token | Retorna o usuário autenticado |
+| GET | `/admin` | Bearer Token + ADMIN | Retorna a área administrativa |
 
-### Testar a API
+Também existem aliases compatíveis com o frontend: `/auth/register`, `/auth/login`, `/users/profile` e `/users/admin`.
+
+O cadastro sempre cria usuários com papel `USER`. O seed cria o usuário administrativo:
+
+- Email: `aluno@email.com`
+- Senha: `123456`
+- Papel: `ADMIN`
+
+## 10. Como testar no Insomnia
+
+Use o Insomnia para demonstrar os status `200`, `401` e `403`.
+
+### 1. Testar a API
 
 `GET http://localhost:3000/health`
 
@@ -120,9 +139,9 @@ Resposta esperada:
 }
 ```
 
-### Cadastro
+### 2. Cadastro de usuário comum
 
-`POST http://localhost:3000/auth/register`
+`POST http://localhost:3000/usuarios`
 
 ```json
 {
@@ -132,9 +151,9 @@ Resposta esperada:
 }
 ```
 
-### Login
+### 3. Login
 
-`POST http://localhost:3000/auth/login`
+`POST http://localhost:3000/login`
 
 ```json
 {
@@ -143,9 +162,11 @@ Resposta esperada:
 }
 ```
 
-### Perfil protegido
+Copie o campo `token` da resposta.
 
-`GET http://localhost:3000/users/profile`
+### 4. Perfil protegido
+
+`GET http://localhost:3000/perfil`
 
 Depois de completar o login, envie o token no cabeçalho:
 
@@ -153,25 +174,33 @@ Depois de completar o login, envie o token no cabeçalho:
 Authorization: Bearer SEU_TOKEN_AQUI
 ```
 
-Enquanto os `TODOs` não forem completados, cadastro, login e middleware respondem com status `501`, indicando que são exercícios ainda não implementados.
+Sem o cabeçalho, a resposta deve ser `401 Token não informado`. Com um token válido, a resposta deve ser `200`.
 
-## 10. O que é hash de senha?
+### 5. Rota administrativa
+
+`GET http://localhost:3000/admin`
+
+Um token de usuário comum deve receber `403 Acesso negado`. O token obtido no login do usuário do seed, que possui papel `ADMIN`, deve receber `200`.
+
+Tokens inválidos ou expirados recebem `401`.
+
+## 11. O que é hash de senha?
 
 Hash é o resultado de uma transformação de mão única. Em vez de salvar `123456` no banco, usamos o bcrypt para guardar um valor transformado. Não precisamos descobrir a senha a partir do hash: no login, o bcrypt verifica se a senha digitada corresponde ao hash salvo.
 
-## 11. O que é login?
+## 12. O que é login?
 
 Login é o processo de confirmar a identidade do usuário. O backend busca o email e compara a senha digitada com o hash armazenado. Se a comparação estiver correta, o usuário é autenticado.
 
-## 12. O que é token JWT?
+## 13. O que é token JWT?
 
 JWT é um texto assinado pelo backend que pode guardar informações mínimas, como o `id` do usuário. A assinatura permite verificar se o token foi realmente criado pela API e se não foi alterado. Senhas nunca devem ser colocadas no token.
 
-## 13. O que é sessão no contexto da API?
+## 14. O que é sessão no contexto da API?
 
 Neste projeto, o token funciona como uma sessão da API. Depois do login, o cliente guarda o token e o envia nas próximas requisições. Assim, o usuário prova que já realizou o login. O token tem tempo de validade definido por `JWT_EXPIRES_IN`.
 
-## 14. O que é middleware?
+## 15. O que é middleware?
 
 Middleware é uma função que fica no meio do caminho entre a requisição e a resposta.
 
@@ -196,7 +225,7 @@ rota protegida é executada
 
 Se o middleware não chamar `next()`, a rota final não será executada. Quando completo, nosso middleware também buscará o usuário e o colocará em `req.user`, para que a rota seguinte saiba quem está autenticado.
 
-## 15. O que é rota protegida?
+## 16. O que é rota protegida?
 
 É uma rota que só pode ser acessada por um usuário autenticado. Antes de executar o controller da rota, o Express executa o middleware:
 
@@ -219,7 +248,7 @@ Primeiro roda `authMiddleware`. Somente quando ele chama `next()` o Express exec
 9. Se o token for válido, a rota é liberada.
 10. Se o token estiver ausente ou inválido, o acesso é bloqueado.
 
-## 16. Partes que os alunos precisam completar
+## 17. Implementação
 
 No `authController.js`:
 
@@ -243,26 +272,21 @@ No `authMiddleware.js`:
 
 Depois de cada implementação, trate também casos como email já cadastrado, usuário inexistente, senha incorreta, token ausente e token inválido.
 
-## 17. Checklist da aula
+## 18. Checklist da AV1
 
 - [ ] Rodei a API
 - [ ] Acessei GET /health
-- [ ] Entendi a estrutura de pastas
-- [ ] Entendi o que é middleware
-- [ ] Completei a busca de usuário no cadastro
-- [ ] Completei o hash da senha no cadastro
-- [ ] Completei o cadastro no banco
-- [ ] Completei a busca de usuário no login
-- [ ] Completei a comparação de senha
-- [ ] Completei a geração do token
-- [ ] Completei a leitura do token no middleware
-- [ ] Completei a validação do token
-- [ ] Completei o req.user
+- [ ] Demonstrei cadastro com senha criptografada
+- [ ] Demonstrei login com JWT
+- [ ] Demonstrei `/perfil` sem token retornando `401`
+- [ ] Demonstrei `/perfil` com token retornando `200`
+- [ ] Demonstrei `/admin` com usuário comum retornando `403`
+- [ ] Demonstrei `/admin` com administrador retornando `200`
 - [ ] Testei a rota protegida sem token
 - [ ] Testei a rota protegida com token válido
 - [ ] Pensei quais rotas do meu TCC precisam ser protegidas
 
-## 18. Como adaptar para o TCC
+## 19. Como adaptar para o TCC
 
 Cada grupo deve identificar:
 
@@ -285,16 +309,8 @@ Exemplos de rotas protegidas:
 - `GET /meus-agendamentos`
 - `POST /comentarios`
 
-Por exemplo, ao criar um pedido, a API pode usar `req.user.id` para relacionar o pedido ao usuário autenticado. Esta primeira versão trabalha somente com autenticação e ainda não diferencia usuários administradores.
+Por exemplo, ao criar um pedido, a API pode usar `req.user.id` para relacionar o pedido ao usuário autenticado.
 
-## 19. Próxima evolução: roles e admin
+## 20. Controle de acesso
 
-Depois que cadastro, login, sessão/token e middleware estiverem funcionando, o projeto poderá evoluir para:
-
-- adicionar o campo `role` no usuário;
-- criar usuários comuns e administradores;
-- criar middleware de autorização;
-- criar rotas acessíveis apenas por admin;
-- aplicar permissões nas rotas reais do TCC.
-
-Roles e admin não estão implementados nesta versão. Primeiro é importante dominar o fluxo básico de autenticação.
+O cadastro público cria usuários com `role: "USER"`. A rota `/admin` usa o middleware `requireRole("ADMIN")` depois da autenticação e retorna `403` para usuários comuns. O seed disponibiliza um usuário `ADMIN` para demonstração no Insomnia.

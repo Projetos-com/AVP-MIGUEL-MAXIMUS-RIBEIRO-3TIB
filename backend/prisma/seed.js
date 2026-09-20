@@ -11,11 +11,13 @@ async function main() {
     update: {
       name: "Aluno Teste",
       password: hashedPassword,
+      role: "ADMIN",
     },
     create: {
       name: "Aluno Teste",
       email: "aluno@email.com",
       password: hashedPassword,
+      role: "ADMIN",
     },
   });
 

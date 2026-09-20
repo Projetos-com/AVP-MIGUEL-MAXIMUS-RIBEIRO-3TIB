@@ -2,7 +2,6 @@ import { Navigate } from "react-router-dom";
 import { isAuthenticated } from "../services/auth.js";
 
 export default function ProtectedRoute({ children }) {
-  // TODO: revisar isAuthenticated() em auth.js para verificar o token salvo.
   const hasToken = isAuthenticated();
 
   // Esta proteção no frontend serve apenas para melhorar a navegação.

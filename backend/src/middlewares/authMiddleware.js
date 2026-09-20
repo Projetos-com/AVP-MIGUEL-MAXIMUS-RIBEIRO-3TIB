@@ -1,75 +1,61 @@
-// Estas dependências serão usadas quando os TODOs forem completados em aula.
 import jwt from "jsonwebtoken";
 import prisma from "../prismaClient.js";
 
 export default async function authMiddleware(req, res, next) {
-  // Middleware é uma função que fica no meio do caminho entre a requisição
-  // e a resposta. O Express executa esta função antes da rota protegida.
-  //
-  // Aqui vamos verificar se o usuário está logado.
-  // Se estiver logado, chamamos next() e deixamos a rota continuar.
-  // Se não estiver, enviamos uma resposta e bloqueamos o acesso.
-  //
-  // O middleware funciona como um porteiro: ele pode deixar a requisição
-  // continuar, bloquear, modificar ou adicionar informações nela.
-  // Se ele não chamar next(), a função final da rota não será executada.
-
-  // TODO: ler o header Authorization
   const authHeader = req.headers.authorization;
 
-  // TODO: verificar se o token foi enviado
   if (!authHeader) {
-    return res.status(401).json({
-      message: "Token não informado"
-    });
+    return res.status(401).json({ message: "Token não informado" });
   }
 
-  // TODO: separar a palavra Bearer do token
   const parts = authHeader.split(" ");
 
   if (parts.length !== 2) {
-    return res.status(401).json({
-      message: "Token inválido"
-    });
+    return res.status(401).json({ message: "Token inválido" });
   }
 
   const [prefix, token] = parts;
 
-  if (prefix !== "Bearer") {
-    return res.status(401).json({
-      message: "Token inválido"
-    });
+  if (prefix !== "Bearer" || !token) {
+    return res.status(401).json({ message: "Token inválido" });
   }
 
-  // TODO: validar o token usando jwt.verify
+  let decoded;
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    return res.status(401).json({ message: "Token inválido ou expirado" });
+  }
 
-  // TODO: buscar o usuário no banco pelo id que veio no token
-  const usuario = await prisma.user.findUnique({
-    where: {
-      id: decoded.id
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true
+  if (!decoded || typeof decoded !== "object" || !Number.isInteger(decoded.id)) {
+    return res.status(401).json({ message: "Token inválido" });
+  }
+
+  try {
+    const usuario = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, name: true, email: true, role: true }
+    });
+
+    if (!usuario) {
+      return res.status(401).json({ message: "Usuário não encontrado" });
     }
-  });
 
-  if (!usuario) {
-    return res.status(401).json({
-      message: "Usuário não encontrado"
-    });
+    req.user = usuario;
+    return next();
+  } catch (error) {
+    console.error("Erro ao validar usuário autenticado:", error);
+    return res.status(500).json({ message: "Erro interno do servidor" });
   }
+}
 
-  // TODO: adicionar o usuário na requisição usando req.user
-  req.user = usuario;
+export function requireRole(role) {
+  return (req, res, next) => {
+    if (req.user?.role !== role) {
+      return res.status(403).json({ message: "Acesso negado" });
+    }
 
-  // TODO: chamar next() para liberar a rota protegida
-  return next();
-
-  // return res.status(501).json({
-  //   message: "Middleware de autenticação ainda será implementado pelos alunos"
-  // });
+    return next();
+  };
 }

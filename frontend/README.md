@@ -1,6 +1,6 @@
-# Frontend de autenticação — template-esqueleto
+# Frontend de autenticação
 
-Este projeto foi feito para aulas do 3º ano do Ensino Médio Técnico em Informática. As telas, os formulários, as rotas e as funções já existem. A integração com o backend foi deixada com comentários `TODO` para que alunos e professor a construam juntos. Ao instalar o projeto, as telas públicas abrem, mas cadastro, login, consulta do perfil e logout **ainda não funcionam**. A rota `/protegida` redireciona para `/login` até que a leitura do token seja completada.
+Este frontend implementa login, armazenamento do JWT, consulta de perfil protegido e logout. A proteção visual da rota melhora a navegação, mas a validação real continua sendo feita pelo middleware do backend.
 
 ## Tecnologias e estrutura
 
@@ -11,7 +11,6 @@ src/
   components/
     ProtectedRoute.jsx
   pages/
-    Register.jsx
     Login.jsx
     ProtectedPage.jsx
   services/
@@ -59,39 +58,29 @@ Neste template, ambos já estão declarados em `package.json` e são instalados 
 
 No Tailwind v3, era comum usar três diretivas separadas (`@tailwind base`, `@tailwind components`, `@tailwind utilities`) e arquivos de configuração JavaScript/PostCSS. Na configuração atual do v4 com Vite, usamos o plugin oficial e um único `@import "tailwindcss";`. Por isso, este projeto não precisa de `tailwind.config.js` nem `postcss.config.js`. Consulte a [documentação oficial do Tailwind com Vite](https://tailwindcss.com/docs/installation/using-vite) para conferir a configuração.
 
-## Páginas e funções preparadas
+## Páginas e funções
 
-| Arquivo | O que já existe | O que falta completar em aula |
+| Arquivo | Responsabilidade |
 | --- | --- | --- |
-| `pages/Register.jsx` | Campos de nome, email e senha; estados `name`, `email`, `password`, `error`, `success`, `loading`; `handleRegister` | Validação, `api.post("/auth/register", ...)`, feedback e limpeza dos campos |
-| `pages/Login.jsx` | Campos de email e senha; estados `email`, `password`, `error`, `loading`; `handleLogin` e `useNavigate` | `api.post("/auth/login", ...)`, leitura do token, `saveToken`, feedback e navegação |
-| `pages/ProtectedPage.jsx` | Espaço para ID, nome e email; estados `user`, `error`, `loading`; `loadProfile`, `handleLogout` e `useEffect` | Leitura do token, `api.get("/users/profile", ...)`, header, tratamento de erro e logout |
-| `components/ProtectedRoute.jsx` | Estrutura para redirecionar sem token e renderizar a página com token | Revisar `isAuthenticated()` após implementar a leitura do token |
-| `services/auth.js` | `saveToken(token)`, `getToken()`, `removeToken()` e `isAuthenticated()` | Completar as operações com `localStorage` |
+| `pages/Login.jsx` | Valida credenciais, salva o JWT e navega para `/perfil`. |
+| `pages/ProtectedPage.jsx` | Consulta `/perfil` com Bearer Token e implementa logout. |
+| `components/ProtectedRoute.jsx` | Redireciona para login quando não há token salvo. |
+| `services/auth.js` | Gerencia o JWT no `localStorage`. |
 
-Os comentários `TODO` dentro das funções indicam a sequência de trabalho. `handleRegister` e `handleLogin` já impedem o recarregamento padrão do formulário; as demais etapas foram deixadas para a aula. `loadProfile` já é chamado pelo `useEffect` ao abrir a página, mas ainda não faz uma requisição. `getToken()` retorna `null` e `isAuthenticated()` retorna `false` provisoriamente, então a proteção da rota ainda não permite entrar. O botão **Sair** também está pronto na interface, mas `handleLogout` ainda precisa remover o token e navegar para `/login`.
+## Fluxo da aplicação
 
-## Fluxo esperado, a implementar em aula
-
-1. Usuário acessa `/register` e cria uma conta.
-2. Frontend envia os dados para `POST /auth/register`.
-3. Backend salva o usuário com senha hasheada.
-4. Usuário acessa `/login`.
-5. Frontend envia email e senha para `POST /auth/login`.
-6. Backend valida o login e retorna um token.
-7. Frontend salva o token no `localStorage` com a chave `auth_token`.
-8. Usuário é redirecionado para `/protegida`.
-9. A página protegida pega o token salvo.
-10. A página protegida envia o token no header `Authorization: Bearer TOKEN_AQUI`.
-11. Backend valida o token no middleware.
-12. Se o token for válido, backend retorna os dados do usuário.
-13. Frontend mostra que o login foi feito com sucesso e exibe ID, nome e email.
-
-No cadastro, a turma completará a validação dos campos, o corpo `{ name, email, password }`, as mensagens de sucesso ou erro e a limpeza do formulário. No login, completará o corpo `{ email, password }`, verificará onde o backend coloca o token na resposta e chamará `saveToken`. Na página protegida, completará `loadProfile` para ler o token, enviar `GET /users/profile` com `Authorization: Bearer ${token}`, salvar o usuário em `user` e tratar token inválido. No logout, chamará `removeToken` e redirecionará para `/login`.
+1. Usuário acessa `/login` e informa email e senha.
+2. Frontend envia as credenciais para `POST /login` usando Axios.
+3. Backend valida o login e retorna um token JWT.
+4. Frontend salva o token no `localStorage` com a chave `auth_token`.
+5. Usuário é redirecionado para `/perfil`.
+6. A página protegida envia o token no header `Authorization: Bearer TOKEN_AQUI`.
+7. Backend valida o token no middleware e retorna os dados do usuário.
+8. Ao sair, o token é removido e o usuário volta para `/login`.
 
 Guardar e enviar o token no frontend permite controlar a navegação, mas isso não substitui a segurança do backend. `ProtectedRoute` só melhora a experiência de quem usa a aplicação. A proteção real é o middleware do backend, que deve validar o JWT a cada requisição protegida, mesmo se alguém tentar acessar a API diretamente ou burlar o frontend.
 
-Para adaptar ao TCC, a turma pode trocar títulos e cores, incluir campos próprios no cadastro, criar páginas específicas do tema e mudar `VITE_API_URL` para o endereço da API do projeto. Ao alterar o contrato da API, revisem também os caminhos das rotas, os nomes dos campos e o formato da resposta do login e do perfil.
+Para adaptar ao TCC, a turma pode trocar títulos e cores, criar campos próprios no perfil e mudar `VITE_API_URL` para o endereço da API do projeto. Ao alterar o contrato da API, revisem também os caminhos das rotas, os nomes dos campos e o formato da resposta do login e do perfil.
 
 ## Checklist dos alunos
 
@@ -100,12 +89,13 @@ Para adaptar ao TCC, a turma pode trocar títulos e cores, incluir campos própr
 - [ ] Configurei VITE_API_URL
 - [ ] Entendi a estrutura do frontend
 - [ ] Entendi onde fica a configuração do axios
-- [ ] Completei o cadastro no frontend
-- [ ] Enviei POST /auth/register pelo frontend
 - [ ] Completei o login no frontend
+- [ ] Acessei `/login`
+- [ ] Fui redirecionado para `/perfil` após o login
 - [ ] Recebi o token do backend
 - [ ] Salvei o token no localStorage
 - [ ] Completei a página protegida
+- [ ] Bloqueei `/perfil` sem token
 - [ ] Enviei Authorization: Bearer TOKEN para o backend
 - [ ] Recebi os dados do usuário logado
 - [ ] Implementei logout

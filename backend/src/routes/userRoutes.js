@@ -1,9 +1,10 @@
 import express from "express";
-import authMiddleware from "../middlewares/authMiddleware.js";
-import { getProfile } from "../controllers/userController.js";
+import authMiddleware, { requireRole } from "../middlewares/authMiddleware.js";
+import { getAdmin, getProfile } from "../controllers/userController.js";
 
 const router = express.Router();
 
-router.get("/profile", authMiddleware, getProfile);
+router.get(["/profile", "/perfil"], authMiddleware, getProfile);
+router.get("/admin", authMiddleware, requireRole("ADMIN"), getAdmin);
 
 export default router;
